@@ -1,9 +1,8 @@
-import 'package:http/http.dart';
+import 'package:isariverpockerbase/collections.dart';
+import 'package:isariverpockerbase/isar_provider.dart';
 import 'package:isariverpockerbase/pocketbase_provider.dart';
+import 'package:pocketbase/pocketbase.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-
-import 'collections.dart';
-import 'isar_provider.dart';
 
 part 'combined_backend_provider.g.dart';
 
@@ -15,44 +14,66 @@ CombinedBackend combinedBackend(
   bool slowRequests = false,
 }) {
   final isarClient = ref.watch(isarClientProvider);
-  final pocketbaseClient = ref.watch(pocketbaseClientProvider(
-    pocketbaseBaseUrl,
-    blockRequests: blockRequests,
-    slowRequests: slowRequests,
-  ));
+  final isarCrdtClient = ref.watch(isarCrdtClientProvider);
+  final pocketbaseClient = ref.watch(
+    pocketbaseClientProvider(
+      pocketbaseBaseUrl,
+      blockRequests: blockRequests,
+      slowRequests: slowRequests,
+    ),
+  );
   return CombinedBackend(
     pocketbaseClient: pocketbaseClient,
     isarClient: isarClient,
+    isarCrdtClient: isarCrdtClient,
   );
 }
 
 class CombinedBackend {
+  CombinedBackend({
+    required this.pocketbaseClient,
+    required this.isarClient,
+    required this.isarCrdtClient,
+  });
   static const int defaultPageSize = 30;
   final PocketbaseClient pocketbaseClient;
   final IsarClient isarClient;
+  final IsarClient isarCrdtClient;
 
-  CombinedBackend({required this.pocketbaseClient, required this.isarClient});
-
-  Future<(List<T> items, int pages)> getList<T extends Collection>(
+  Future<({List<T> items, int pages})> getList<T extends Collection>(
     CollectionInfo<T> collectionInfo, {
     int page = 0,
     int pageSize = defaultPageSize,
   }) async {
-    return pocketbaseClient.getList(
-      collectionInfo,
-      page: page,
-      pageSize: pageSize,
-    );
+    try {
+      final results = await pocketbaseClient.getList(
+        collectionInfo,
+        page: page,
+        pageSize: pageSize,
+      );
+      // ignore: unawaited_futures
+      isarClient.writeAll(collectionInfo, results.items);
+      return results;
+    } on ClientException {
+      return isarClient.getList(
+        collectionInfo,
+        page: page,
+        pageSize: pageSize,
+      );
+    }
   }
 
   Future<T> read<T extends Collection>(
     CollectionInfo<T> collectionInfo,
     String id,
   ) async {
-    return pocketbaseClient.read(collectionInfo, id);
+    final result = await pocketbaseClient.read(collectionInfo, id);
+    // ignore: unawaited_futures
+    isarClient.write(collectionInfo, result);
+    return result;
   }
 
-  Future<T> create<T extends Collection>(
+  Future<void> create<T extends Collection>(
     CollectionInfo<T> collection,
     T value, {
     Json? customJson,
@@ -74,15 +95,17 @@ class CombinedBackend {
     return pocketbaseClient.delete(collection, id);
   }
 
-  Future<List<T>> search<T extends Collection>(
-    CollectionInfo<T> collectionInfo,
-    String query, {
+  Future<List<T>> filter<T extends Collection>(
+    CollectionInfo<T> collectionInfo, {
+    required String pocketbaseFilter,
+    required String pocketbaseSort,
     int page = 0,
     int pageSize = defaultPageSize,
   }) async {
-    return pocketbaseClient.search(
+    return pocketbaseClient.filter(
       collectionInfo,
-      query,
+      filter: pocketbaseFilter,
+      sort: pocketbaseSort,
       page: page,
       pageSize: pageSize,
     );

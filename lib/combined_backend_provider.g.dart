@@ -6,7 +6,7 @@ part of 'combined_backend_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$combinedBackendHash() => r'8b4b79bffdfcb727c901119bcef5ba1b38f5a7aa';
+String _$combinedBackendHash() => r'ec34d696b31998945ee6ea5f54717d1cbbf73a01';
 
 /// Copied from Dart SDK
 class _SystemHash {

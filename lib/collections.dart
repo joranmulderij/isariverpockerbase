@@ -1,3 +1,4 @@
+/// All collections must implement this interface.
 abstract interface class Collection {
   String get id;
 
@@ -5,9 +6,12 @@ abstract interface class Collection {
   DateTime get updated;
 }
 
+abstract interface class AuthCollection extends Collection {
+  String get username;
+}
+
 abstract interface class CollectionInfo<T> {
-  String get pocketbaseName;
-  String get isarName;
+  String get name;
   Json toJson(T value);
   T fromJson(Json json);
 }
